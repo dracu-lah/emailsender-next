@@ -12,17 +12,21 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
-import { Eye, EyeOff } from "lucide-react";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Eye, EyeOff, Info, ExternalLink } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 
 const LoginPage = () => {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
 
   // 👇 redirect if already logged in
   useEffect(() => {
@@ -82,24 +86,145 @@ const LoginPage = () => {
 
               {/* App Password */}
               <div className="flex flex-col space-y-1.5">
-                <Label htmlFor="appPassword">
-                  App Password
-                  <HoverCard>
-                    <HoverCardTrigger asChild>
-                      <span>
-                        <Button className="p-0" type="button" variant="link">
-                          (?)
+                <div className="flex justify-start items-center gap-2">
+                  <Label htmlFor="appPassword">App Password</Label>
+                  <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 rounded-full"
+                      >
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[500px]">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-xl">
+                          <Info className="h-5 w-5" />
+                          How to Generate an App Password
+                        </DialogTitle>
+                        <DialogDescription>
+                          Follow these steps to create a Google App Password for
+                          this application
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-3">
+                          <div className="flex gap-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
+                              1
+                            </div>
+                            <div className="space-y-1">
+                              <p className="font-medium">
+                                Open Google Account Settings
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Go to your Google Account settings page
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
+                              2
+                            </div>
+                            <div className="space-y-1">
+                              <p className="font-medium">
+                                Enable 2-Step Verification
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Navigate to{" "}
+                                <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+                                  Security → 2-Step Verification
+                                </code>{" "}
+                                and enable it if not already enabled
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
+                              3
+                            </div>
+                            <div className="space-y-1">
+                              <p className="font-medium">
+                                Access App Passwords
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Go to{" "}
+                                <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+                                  Security → App Passwords
+                                </code>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
+                              4
+                            </div>
+                            <div className="space-y-1">
+                              <p className="font-medium">Generate Password</p>
+                              <p className="text-sm text-muted-foreground">
+                                Create a new app password for "Email Sender" or
+                                "Mail"
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
+                              5
+                            </div>
+                            <div className="space-y-1">
+                              <p className="font-medium">Copy and Save</p>
+                              <p className="text-sm text-muted-foreground">
+                                Copy the generated 16-character password and
+                                paste it in the form
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-6 rounded-lg border bg-muted/50 p-4">
+                          <div className="flex items-start gap-2">
+                            <Info className="h-4 w-4 mt-0.5 text-blue-500" />
+                            <div className="space-y-1">
+                              <p className="text-sm font-medium">
+                                Important Note
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                App passwords can only be used with apps or
+                                services that don't support 2-Step Verification.
+                                Make sure to keep your app password secure.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full"
+                          asChild
+                        >
+                          <a
+                            href="https://myaccount.google.com/apppasswords"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2"
+                          >
+                            Open Google App Passwords
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
                         </Button>
-                      </span>
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-80">
-                      <span className="text-sm opacity-60">
-                        Tip:
-                        <br /> Go to Google Account → Security → App Passwords
-                      </span>
-                    </HoverCardContent>
-                  </HoverCard>
-                </Label>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
 
                 <div className="relative">
                   <Input
