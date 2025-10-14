@@ -169,8 +169,8 @@ const LoginPage = () => {
                             <div className="space-y-1">
                               <p className="font-medium">Generate Password</p>
                               <p className="text-sm text-muted-foreground">
-                                Create a new app password for "Email Sender" or
-                                "Mail"
+                                Create a new app password for &quot;Email
+                                Sender&quot; or &quot;Mail&quot;
                               </p>
                             </div>
                           </div>
@@ -198,8 +198,9 @@ const LoginPage = () => {
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 App passwords can only be used with apps or
-                                services that don't support 2-Step Verification.
-                                Make sure to keep your app password secure.
+                                services that don&apos;t support 2-Step
+                                Verification. Make sure to keep your app
+                                password secure.
                               </p>
                             </div>
                           </div>
