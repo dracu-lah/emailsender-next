@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Loader2, CheckCircle2, X, Edit2, Save } from "lucide-react";
+import { Loader2, CheckCircle2, X, Edit2, Save, Copy } from "lucide-react";
 import axios from "axios";
 import { useAuth } from "../hooks/useAuth";
 import { toast } from "sonner";
+
 type ErrorResponse = {
   response: {
     data: {
@@ -21,6 +22,7 @@ type ErrorResponse = {
     };
   };
 };
+
 export const SendEmailAPI = async (params: unknown) => {
   try {
     const { data } = await axios.post(`/api/send-email`, params);
@@ -74,13 +76,10 @@ const getStoredData = (): StoredData => {
   }
 };
 
-const setStoredData = (data: object) => {
+const setStoredData = (data: StoredData) => {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ ...data, recipients: [] }),
-    );
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (error) {
     console.error("Failed to save data to localStorage:", error);
   }
@@ -95,7 +94,7 @@ const clearStoredData = () => {
   }
 };
 
-// Tag Input Component with improved email handling
+// Tag Input Component with improved email handling and copy functionality
 interface TagInputProps {
   value: string[];
   onChange: (value: string[]) => void;
@@ -167,8 +166,21 @@ const TagInput = ({ value, onChange, error, disabled }: TagInputProps) => {
     }
   };
 
+  const copyAllEmails = () => {
+    if (tags.length > 0) {
+      navigator.clipboard
+        .writeText(tags.join(", "))
+        .then(() => {
+          toast.success("Emails copied to clipboard!");
+        })
+        .catch(() => {
+          toast.error("Failed to copy emails");
+        });
+    }
+  };
+
   return (
-    <div>
+    <div className="space-y-2">
       <div
         className={`min-h-[42px] w-full rounded-md border ${
           error ? "border-red-500" : "border-input"
@@ -219,6 +231,22 @@ const TagInput = ({ value, onChange, error, disabled }: TagInputProps) => {
           />
         )}
       </div>
+
+      {/* Copy Button */}
+      {tags.length > 0 && (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={copyAllEmails}
+            className="h-7 text-xs"
+          >
+            <Copy className="h-3 w-3 mr-1" />
+            Copy all emails
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
@@ -230,6 +258,7 @@ const EmailForm = () => {
 
   const [storedFileName, setStoredFileName] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const storedData = getStoredData();
 
@@ -243,24 +272,57 @@ const EmailForm = () => {
     reset,
     setError,
     clearErrors,
+    trigger,
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      recipients: [],
-      subject: storedData.subject || "",
-      body: storedData.body || "",
-      resume: storedData.resumeData || undefined,
+      recipients: storedData.recipients || [],
+      subject: storedData.subject || "ReactJS Developer Application",
+      body:
+        storedData.body ||
+        `Dear Hiring Manager,
+
+I am writing to express my interest in the ReactJS Developer position. 
+
+With my experience in modern React development and related technologies, I believe I would be a great fit for your team.
+
+Please find my resume attached for your consideration.
+
+Best regards,
+[Your Name]`,
+      resume: undefined,
     },
   });
 
-  // Load stored resume on mount
+  // Load stored resume on mount and set up file input
   useEffect(() => {
     if (storedData.resumeData && storedData.resumeName) {
       setStoredFileName(storedData.resumeName);
-      // Clear resume error if we have a stored resume
-      clearErrors("resume");
+
+      // Create a File object from stored data and set it in the form
+      const convertBase64ToFile = async () => {
+        try {
+          const response = await fetch(storedData.resumeData!);
+          const blob = await response.blob();
+          const file = new File([blob], storedData.resumeName!, {
+            type: "application/pdf",
+          });
+
+          // Create a FileList-like object
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(file);
+
+          // Set the file in the form
+          setValue("resume", dataTransfer.files);
+          clearErrors("resume");
+        } catch (error) {
+          console.error("Failed to load stored resume:", error);
+        }
+      };
+
+      convertBase64ToFile();
     }
-  }, [storedData.resumeData, storedData.resumeName, clearErrors]);
+  }, [storedData.resumeData, storedData.resumeName, setValue, clearErrors]);
 
   const formValues = watch();
 
@@ -271,6 +333,7 @@ const EmailForm = () => {
     // Store resume data if present
     if (resume && resume[0]) {
       const file = resume[0];
+
       // Validate file type
       if (file.type !== "application/pdf") {
         setError("resume", {
@@ -285,16 +348,19 @@ const EmailForm = () => {
         setStoredData({
           ...dataToStore,
           recipients,
-          resumeData: e.target?.result,
+          resumeData: e.target?.result as string,
           resumeName: file.name,
         });
         setStoredFileName(file.name);
         // Clear resume error when valid file is selected
         clearErrors("resume");
       };
+      reader.onerror = () => {
+        console.error("Failed to read file for storage");
+      };
       reader.readAsDataURL(file);
     } else {
-      // Always store current data
+      // Store current data without modifying resume data
       setStoredData({
         ...storedData,
         ...dataToStore,
@@ -306,7 +372,12 @@ const EmailForm = () => {
   const mutation = useMutation({
     mutationFn: SendEmailAPI,
     onSuccess: () => {
+      // Clear only recipients on success, keep other data
       setValue("recipients", []);
+      setStoredData({
+        ...storedData,
+        recipients: [],
+      });
       toast.success("Email sent successfully!");
     },
     onError: ({ response }: ErrorResponse) => {
@@ -321,7 +392,14 @@ const EmailForm = () => {
     },
   });
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
+    // Validate all fields including resume
+    const isValid = await trigger();
+    if (!isValid) {
+      toast.error("Please fix the form errors before sending.");
+      return;
+    }
+
     // Additional validation to ensure resume is present
     if (!data.resume || !data.resume[0]) {
       if (!storedData.resumeData) {
@@ -346,16 +424,17 @@ const EmailForm = () => {
       formData.append("resume", data.resume[0]);
     } else if (storedData.resumeData && storedData.resumeName) {
       // Convert base64 back to file
-      fetch(storedData.resumeData)
-        .then((res) => res.blob())
-        .then((blob) => {
-          const file = new File([blob], storedData.resumeName!, {
-            type: "application/pdf",
-          });
-          formData.append("resume", file);
-          mutation.mutate(formData);
+      try {
+        const response = await fetch(storedData.resumeData);
+        const blob = await response.blob();
+        const file = new File([blob], storedData.resumeName!, {
+          type: "application/pdf",
         });
-      return;
+        formData.append("resume", file);
+      } catch (error) {
+        toast.error("Failed to load stored resume file.");
+        return;
+      }
     }
 
     mutation.mutate(formData);
@@ -380,6 +459,11 @@ Best regards,
       resume: null,
     });
     setIsEditing(false);
+
+    // Clear file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const toggleEditing = () => {
@@ -388,10 +472,19 @@ Best regards,
 
   const handleSaveTemplate = () => {
     setIsEditing(false);
-    // Data is already auto-saved, just show confirmation
+    toast.success("Template saved successfully!");
   };
 
-  // Update resume label to indicate it's required
+  // Handle file change manually to ensure proper form state update
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files[0]) {
+      setValue("resume", files);
+      // Trigger validation
+      trigger("resume");
+    }
+  };
+
   return (
     <div className="py-12 px-4">
       <div className="max-w-2xl mx-auto">
@@ -506,8 +599,10 @@ Best regards,
                   type="file"
                   accept=".pdf"
                   {...register("resume")}
+                  onChange={handleFileChange}
                   className={errors.resume ? "border-red-500" : ""}
                   disabled={!isEditing}
+                  ref={fileInputRef}
                   required
                 />
                 {errors.resume && (
