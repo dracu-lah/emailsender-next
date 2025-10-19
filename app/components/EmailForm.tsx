@@ -9,12 +9,18 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, CheckCircle2, XCircle, X, Edit2, Save } from "lucide-react";
+import { Loader2, CheckCircle2, X, Edit2, Save } from "lucide-react";
 import axios from "axios";
 import { useAuth } from "../hooks/useAuth";
-import {toast} from 'sonner'
-
+import { toast } from "sonner";
+type ErrorResponse = {
+  response: {
+    data: {
+      error: string;
+      message: string;
+    };
+  };
+};
 export const SendEmailAPI = async (params: unknown) => {
   try {
     const { data } = await axios.post(`/api/send-email`, params);
@@ -291,21 +297,18 @@ Best regards,
     mutationFn: SendEmailAPI,
     onSuccess: () => {
       setValue("recipients", []);
-toast.success("Email sent successfully!")
+      toast.success("Email sent successfully!");
     },
-    onError:({response})=>{
-      if(response?.data?.error){
-        toast.error(response.data.error)
-      }if(response?.data?.message){
-        toast.error(response.data.message)
+    onError: ({ response }: ErrorResponse) => {
+      if (response?.data?.error) {
+        toast.error(response.data.error);
       }
-
-      else{
-
-        toast.error("Failed to send email. Please try again.")
+      if (response?.data?.message) {
+        toast.error(response.data.message);
+      } else {
+        toast.error("Failed to send email. Please try again.");
       }
-
-    }
+    },
   });
 
   const onSubmit = (data: FormData) => {
@@ -487,7 +490,6 @@ Best regards,
                   </p>
                 )}
               </div>
-
 
               {/* Action Buttons */}
               <div className="flex gap-3">
