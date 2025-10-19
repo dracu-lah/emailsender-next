@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, CheckCircle2, XCircle, X, Edit2, Save } from "lucide-react";
 import axios from "axios";
 import { useAuth } from "../hooks/useAuth";
+import {toast} from 'sonner'
 
 export const SendEmailAPI = async (params: unknown) => {
   try {
@@ -290,7 +291,21 @@ Best regards,
     mutationFn: SendEmailAPI,
     onSuccess: () => {
       setValue("recipients", []);
+toast.success("Email sent successfully!")
     },
+    onError:({response})=>{
+      if(response?.data?.error){
+        toast.error(response.data.error)
+      }if(response?.data?.message){
+        toast.error(response.data.message)
+      }
+
+      else{
+
+        toast.error("Failed to send email. Please try again.")
+      }
+
+    }
   });
 
   const onSubmit = (data: FormData) => {
@@ -473,24 +488,6 @@ Best regards,
                 )}
               </div>
 
-              {/* Status Messages */}
-              {mutation.isSuccess && (
-                <Alert className="bg-green-50 border-green-200">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-800">
-                    Email sent successfully!
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {mutation.isError && (
-                <Alert className="bg-red-50 border-red-200">
-                  <XCircle className="h-4 w-4 text-red-600" />
-                  <AlertDescription className="text-red-800">
-                    Failed to send email. Please try again.
-                  </AlertDescription>
-                </Alert>
-              )}
 
               {/* Action Buttons */}
               <div className="flex gap-3">
