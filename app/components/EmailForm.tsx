@@ -35,14 +35,20 @@ const isValidEmail = (email: string) => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 };
 
-// Zod Schema
+// Zod Schema - Updated to make resume required
 const formSchema = z.object({
   recipients: z
     .array(z.string().email())
     .min(1, "At least one recipient is required"),
   subject: z.string().min(1, "Subject is required"),
   body: z.string().min(10, "Body must be at least 10 characters"),
-  resume: z.any().optional(),
+  resume: z
+    .any()
+    .refine((files) => files?.length > 0, "Resume is required")
+    .refine(
+      (files) => files?.[0]?.type === "application/pdf",
+      "Only PDF files are allowed",
+    ),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -235,23 +241,14 @@ const EmailForm = () => {
     formState: { errors },
     watch,
     reset,
+    setError,
+    clearErrors,
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       recipients: [],
-      subject: storedData.subject || "ReactJS Developer Application",
-      body:
-        storedData.body ||
-        `Dear Hiring Manager,
-
-I am writing to express my interest in the ReactJS Developer position. 
-
-With my experience in modern React development and related technologies, I believe I would be a great fit for your team.
-
-Please find my resume attached for your consideration.
-
-Best regards,
-[Your Name]`,
+      subject: storedData.subject || "",
+      body: storedData.body || "",
       resume: undefined,
     },
   });
@@ -260,8 +257,10 @@ Best regards,
   useEffect(() => {
     if (storedData.resumeData && storedData.resumeName) {
       setStoredFileName(storedData.resumeName);
+      // Clear resume error if we have a stored resume
+      clearErrors("resume");
     }
-  }, [storedData.resumeData, storedData.resumeName]);
+  }, [storedData.resumeData, storedData.resumeName, clearErrors]);
 
   const formValues = watch();
 
@@ -272,6 +271,15 @@ Best regards,
     // Store resume data if present
     if (resume && resume[0]) {
       const file = resume[0];
+      // Validate file type
+      if (file.type !== "application/pdf") {
+        setError("resume", {
+          type: "manual",
+          message: "Only PDF files are allowed",
+        });
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (e) => {
         setStoredData({
@@ -281,6 +289,8 @@ Best regards,
           resumeName: file.name,
         });
         setStoredFileName(file.name);
+        // Clear resume error when valid file is selected
+        clearErrors("resume");
       };
       reader.readAsDataURL(file);
     } else {
@@ -291,7 +301,7 @@ Best regards,
         recipients,
       });
     }
-  }, [formValues, storedData]);
+  }, [formValues, storedData, setError, clearErrors]);
 
   const mutation = useMutation({
     mutationFn: SendEmailAPI,
@@ -312,6 +322,18 @@ Best regards,
   });
 
   const onSubmit = (data: FormData) => {
+    // Additional validation to ensure resume is present
+    if (!data.resume || !data.resume[0]) {
+      if (!storedData.resumeData) {
+        setError("resume", {
+          type: "manual",
+          message: "Resume is required",
+        });
+        toast.error("Please upload a resume before sending the email.");
+        return;
+      }
+    }
+
     const formData = new FormData();
     formData.append("email", email);
     formData.append("app_password", password);
@@ -369,6 +391,7 @@ Best regards,
     // Data is already auto-saved, just show confirmation
   };
 
+  // Update resume label to indicate it's required
   return (
     <div className="py-12 px-4">
       <div className="max-w-2xl mx-auto">
@@ -465,9 +488,11 @@ Best regards,
                 )}
               </div>
 
-              {/* Resume Upload */}
+              {/* Resume Upload - Now Required */}
               <div className="space-y-2">
-                <Label htmlFor="resume">Resume (PDF)</Label>
+                <Label htmlFor="resume">
+                  Resume (PDF) <span className="text-red-500">*</span>
+                </Label>
                 {storedFileName && (
                   <div className="bg-green-50 border border-green-200 rounded-md p-2 mb-2 flex items-center justify-between">
                     <span className="text-sm text-green-800">
@@ -483,10 +508,16 @@ Best regards,
                   {...register("resume")}
                   className={errors.resume ? "border-red-500" : ""}
                   disabled={!isEditing}
+                  required
                 />
                 {errors.resume && (
                   <p className="text-sm text-red-500">
                     {errors.resume.message as string}
+                  </p>
+                )}
+                {!storedFileName && !errors.resume && (
+                  <p className="text-sm text-gray-500">
+                    Please upload your resume in PDF format
                   </p>
                 )}
               </div>
