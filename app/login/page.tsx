@@ -86,18 +86,16 @@ const LoginPage = () => {
 
               {/* App Password */}
               <div className="flex flex-col space-y-1.5">
-                <div className="flex justify-start items-center gap-2">
-                  <Label htmlFor="appPassword">App Password</Label>
+                <div className="flex justify-start items-center gap-1">
+                  <Label htmlFor="appPassword">App Password </Label>
                   <Dialog open={modalOpen} onOpenChange={setModalOpen}>
                     <DialogTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 rounded-full"
+                      <div
+                        className="text-primary cursor-pointer text-sm"
+
                       >
-                        <Info className="h-4 w-4 text-muted-foreground" />
-                      </Button>
+(Dont have one?)
+                      </div>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[500px]">
                       <DialogHeader>
@@ -225,6 +223,7 @@ const LoginPage = () => {
                       </div>
                     </DialogContent>
                   </Dialog>
+
                 </div>
 
                 <div className="relative">
