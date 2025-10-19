@@ -249,7 +249,7 @@ const EmailForm = () => {
       recipients: [],
       subject: storedData.subject || "",
       body: storedData.body || "",
-      resume: undefined,
+      resume: storedData.resumeData || undefined,
     },
   });
 
