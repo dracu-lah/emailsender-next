@@ -29,6 +29,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Parse recipients (comma-separated or newline-separated)
+    const recipientList = recipients
+      .split(/[\n,]/)
+      .map((recipient) => recipient.trim())
+      .filter((recipient) => recipient.length > 0);
+
+    if (recipientList.length === 0) {
+      return NextResponse.json(
+        { error: "No valid recipients provided" },
+        { status: 400 },
+      );
+    }
+
     // Create transporter
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
@@ -43,35 +56,90 @@ export async function POST(request: NextRequest) {
     // Convert File to Buffer
     const resumeBuffer = Buffer.from(await resume.arrayBuffer());
 
-    // Send with timeout
-    const emailPromise = transporter.sendMail({
-      from: email,
-      to: recipients,
-      subject: subject,
-      text: body,
-      attachments: [
-        {
-          filename: resume.name || "resume.pdf",
-          content: resumeBuffer,
-        },
-      ],
-    });
+    // Send emails individually with delays
+    const results = [];
+    const sentEmails = [];
 
-    // Add timeout to email sending
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error("Email sending timeout")), 8000);
-    });
+    for (let i = 0; i < recipientList.length; i++) {
+      const recipient = recipientList[i];
 
-    await Promise.race([emailPromise, timeoutPromise]);
+      try {
+        console.log(
+          `Sending email to: ${recipient} (${i + 1}/${recipientList.length})`,
+        );
+
+        // Add timeout to email sending
+        const emailPromise = transporter.sendMail({
+          from: email,
+          to: recipient, // Send to individual recipient
+          subject: subject,
+          text: body,
+          attachments: [
+            {
+              filename: resume.name || "resume.pdf",
+              content: resumeBuffer,
+            },
+          ],
+        });
+
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(
+            () => reject(new Error(`Email sending timeout for ${recipient}`)),
+            8000,
+          );
+        });
+
+        await Promise.race([emailPromise, timeoutPromise]);
+
+        results.push({
+          recipient,
+          status: "success",
+          message: "Email sent successfully",
+        });
+        sentEmails.push(recipient);
+
+        console.log(`✅ Email sent to: ${recipient}`);
+
+        // Add delay between emails (1 second delay)
+        if (i < recipientList.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error occurred";
+        console.error(`❌ Failed to send to ${recipient}:`, errorMessage);
+
+        results.push({
+          recipient,
+          status: "error",
+          message: errorMessage,
+        });
+
+        // Continue with next email even if one fails
+        continue;
+      }
+    }
+
     await transporter.close();
 
     const endTime = Date.now();
-    console.log(`Email sent in ${endTime - startTime}ms`);
+    const totalDuration = endTime - startTime;
+
+    console.log(`Email sending completed in ${totalDuration}ms`);
+    console.log(
+      `Results: ${sentEmails.length}/${recipientList.length} emails sent successfully`,
+    );
 
     return NextResponse.json({
-      status: "success",
-      message: "✅ Email sent successfully!",
-      duration: `${endTime - startTime}ms`,
+      status: "completed",
+      message: `Sent ${sentEmails.length}/${recipientList.length} emails successfully`,
+      results: results,
+      summary: {
+        total: recipientList.length,
+        successful: sentEmails.length,
+        failed: recipientList.length - sentEmails.length,
+      },
+      duration: `${totalDuration}ms`,
     });
   } catch (error) {
     const endTime = Date.now();
