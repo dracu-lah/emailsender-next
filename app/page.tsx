@@ -14,7 +14,7 @@ export default function Home() {
   return (
     <AuthGuard>
       <div className="p-4 md:p-8 flex w-[100vw] justify-between items-center ">
-        <span className="text-3xl md:text-4xl font-light text-primary ">
+        <span className="text-2xl md:text-4xl font-light text-primary ">
           EmailxSender
         </span>
         <div className="flex justify-center items-center gap-4">

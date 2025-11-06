@@ -108,6 +108,7 @@ const setSendHistory = (records: SendRecord[]) => {
 
 interface TagInputProps {
   value: string[];
+  label: string;
   onChange: (value: string[]) => void;
   error?: { message?: string };
   disabled?: boolean;
@@ -116,6 +117,7 @@ interface TagInputProps {
 
 const TagInput: React.FC<TagInputProps> = ({
   value,
+  label,
   onChange,
   error,
   disabled,
@@ -183,6 +185,20 @@ const TagInput: React.FC<TagInputProps> = ({
 
   return (
     <div className="space-y-2">
+      <div className="flex justify-between">
+        {label && <Label htmlFor="recipients">{label}</Label>}
+        {tags.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={copyAll}
+          >
+            <Copy className="h-3 w-3 mr-1" />
+            Copy all emails
+          </Button>
+        )}
+      </div>
       <div
         className={`min-h-[44px] w-full rounded-md border px-3 py-2 text-sm flex flex-wrap gap-2 items-center ${error ? "border-destructive" : "border"} bg-popover`}
         onClick={() => !disabled && inputRef.current?.focus()}
@@ -194,19 +210,12 @@ const TagInput: React.FC<TagInputProps> = ({
           return (
             <div
               key={i}
-              className="inline-flex items-center gap-3 bg-muted rounded-md px-2 py-1"
+              className={`inline-flex items-center gap-3 ${!sent ? "bg-primary" : "bg-secondary"} rounded-md px-2 py-1`}
             >
-              <div className="flex flex-col">
-                <div
-                  className={`text-sm font-medium ${sent ? "text-emerald-700" : "text-foreground"}`}
-                >
+              <div className="flex relative flex-col justify-center">
+                <div className={`text-sm font-medium text-foreground`}>
                   {tag}
                 </div>
-                {sent && (
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(sent).toLocaleString()}
-                  </div>
-                )}
               </div>
               {!disabled && (
                 <button
@@ -216,7 +225,7 @@ const TagInput: React.FC<TagInputProps> = ({
                     removeTag(i);
                   }}
                   aria-label={`Remove ${tag}`}
-                  className="rounded p-1 hover:bg-muted"
+                  className="rounded p-1 hover:bg-primary/20"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -241,19 +250,6 @@ const TagInput: React.FC<TagInputProps> = ({
           />
         )}
       </div>
-      {tags.length > 0 && (
-        <div className="flex justify-end">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={copyAll}
-          >
-            <Copy className="h-3 w-3 mr-1" />
-            Copy all emails
-          </Button>
-        </div>
-      )}
       {error?.message && (
         <p className="text-xs text-destructive">{error.message}</p>
       )}
@@ -531,12 +527,12 @@ Best regards,
   };
 
   return (
-    <div className="py-12 px-4">
+    <div className="md:py-12 px-2 md:px-4">
       <div className="max-w-2xl mx-auto">
         <Card>
-          <CardContent>
+          <CardContent className="px-4 ">
             <div className="space-y-6">
-              <div className="bg-secondary/60 p-4 rounded-lg border border-secondary">
+              <div className="bg-secondary/60  p-3  rounded-lg border border-secondary">
                 <p className="text-sm text-primary">
                   <span className="font-semibold">Sending from:</span>{" "}
                   {email || "Not configured"}
@@ -544,14 +540,13 @@ Best regards,
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="recipients">Recipients</Label>
-                </div>
+                <div className="flex items-center justify-between"></div>
                 <Controller
                   name="recipients"
                   control={control}
                   render={({ field }) => (
                     <TagInput
+                      label="Recipients"
                       value={field.value}
                       onChange={field.onChange}
                       error={errors.recipients}
@@ -699,11 +694,11 @@ Best regards,
           </DialogHeader>
 
           <div className="mt-4">
-            <div className="max-h-64 overflow-auto divide-y rounded border p-2">
+            <div className="max-h-64 overflow-auto flex flex-col gap-1 rounded border p-1">
               {conflictingRecipients.map((c) => (
                 <label
                   key={c.recipient}
-                  className="flex items-center justify-between gap-4 p-2 hover:bg-muted"
+                  className="flex items-center justify-between gap-4 p-2 bg-card"
                 >
                   <div className="flex items-start gap-3">
                     <Checkbox
@@ -712,9 +707,7 @@ Best regards,
                       className="mt-1"
                     />
                     <div className="flex flex-col">
-                      <div className="text-sm font-medium text-emerald-800">
-                        {c.recipient}
-                      </div>
+                      <div className="text-sm font-medium ">{c.recipient}</div>
                       <div className="text-xs text-muted-foreground">
                         {new Date(c.lastSent).toLocaleString()}
                       </div>
@@ -744,7 +737,7 @@ Best regards,
             </Button>
             <Button
               onClick={handleConfirmSend}
-              className="ml-2"
+              className="md:ml-2"
               disabled={mutation.isPending}
             >
               {mutation.isPending ? (
