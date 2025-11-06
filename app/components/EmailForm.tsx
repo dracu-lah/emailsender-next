@@ -23,6 +23,14 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 
+type ErrorResponse = {
+  response: {
+    data: {
+      error: string;
+      message: string;
+    };
+  };
+};
 const SendEmailAPI = async (params: unknown) => {
   const { data } = await axios.post(`/api/send-email`, params);
   return data;
@@ -46,7 +54,7 @@ const formSchema = z.object({
     ),
 });
 
-type FormData = z.infer<typeof formSchema>;
+type FormType = z.infer<typeof formSchema>;
 
 const STORAGE_KEY = "email-form-data";
 const SEND_HISTORY_KEY = "email-send-history";
@@ -267,7 +275,7 @@ const EmailForm: React.FC = () => {
   const storedData = getStoredData();
   const [sendMap, setSendMap] = useState<Record<string, string>>({});
   const [showConfirm, setShowConfirm] = useState(false);
-  const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
+  const [pendingFormData, setPendingFormData] = useState<FormType | null>(null);
   const [conflictingRecipients, setConflictingRecipients] = useState<
     SendRecord[]
   >([]);
@@ -287,7 +295,7 @@ const EmailForm: React.FC = () => {
     setError,
     clearErrors,
     trigger,
-  } = useForm<FormData>({
+  } = useForm<FormType>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       recipients: storedData.recipients || [],
@@ -329,7 +337,7 @@ Best regards,
   const formValues = watch();
 
   useEffect(() => {
-    const { recipients, resume, ...dataToStore } = formValues as any;
+    const { recipients, resume, ...dataToStore } = formValues as FormType;
     if (resume && resume[0]) {
       const file = resume[0];
       if (file.type !== "application/pdf") {
@@ -403,7 +411,7 @@ Best regards,
       setSelectedConflicts({});
       setLastSentRecipients([]);
     },
-    onError: (err: any) => {
+    onError: (err: ErrorResponse) => {
       const resp = err?.response?.data;
       if (resp?.error) toast.error(resp.error);
       else if (resp?.message) toast.error(resp.message);
@@ -411,7 +419,7 @@ Best regards,
     },
   });
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: FormType) => {
     const valid = await trigger();
     if (!valid) {
       toast.error("Please fix the form errors before sending.");
@@ -445,7 +453,7 @@ Best regards,
     await performSend(data, data.recipients);
   };
 
-  const performSend = async (data: FormData, recipientsToSend: string[]) => {
+  const performSend = async (data: FormType, recipientsToSend: string[]) => {
     const formData = new FormData();
     formData.append("email", email);
     formData.append("app_password", password);
@@ -668,7 +676,7 @@ Best regards,
           </CardContent>
           <CardFooter className="text-xs text-muted-foreground text-center">
             Note: All fields including resume are automatically saved to your
-            browser's storage
+            browser&apos;s storage
           </CardFooter>
         </Card>
       </div>
