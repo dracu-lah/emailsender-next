@@ -2,7 +2,7 @@
 
 EmailxSender is a small open-source Next.js app that helps you send personalized job outreach or bulk recruiter emails directly from your own Gmail account using a Gmail App Password.
 
-@image[og-image.png]
+![Preview](public/og-image.png)
 
 ### Features
 
