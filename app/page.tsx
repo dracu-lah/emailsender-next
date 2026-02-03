@@ -113,7 +113,7 @@ export default function Home() {
           </header>
 
           <main className="flex-1 ">
-            <div className="max-w-4xl mx-auto space-y-0">
+            <div className="max-w-4xl mx-auto space-y-0 mt-2">
               <QueryProvider>
                 <EmailForm />
               </QueryProvider>
@@ -124,4 +124,3 @@ export default function Home() {
     </AuthGuard>
   );
 }
-
