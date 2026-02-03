@@ -1,53 +1,52 @@
 "use client";
+
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Send, MailCheck, Github, LogOutIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AuthGuard from "./components/AuthGuard";
 import EmailForm from "./components/EmailForm";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAuth } from "./hooks/useAuth";
-import { useRouter } from "next/navigation";
 import { ModeToggle } from "@/components/ui/mode-toggle";
-import { History, Send, MailCheck, Github, LogOutIcon } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { PROJECT_CONFIG } from "@/lib/constants";
+import { QueryProvider } from "./components/QueryProvider";
 
-const queryClient = new QueryClient();
+const SEND_HISTORY_KEY = "email-send-history";
 
-export default function Home() {
-  const router = useRouter();
-  const { auth, logout } = useAuth();
+const useSentCount = (gmail?: string) => {
   const [sentCount, setSentCount] = useState(0);
 
   useEffect(() => {
     const updateCount = () => {
       if (typeof window === "undefined") return;
       try {
-        const raw = localStorage.getItem("email-send-history");
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          // Filter by current user if auth is available
-          const count = auth?.gmail
-            ? parsed.filter((r: any) => r.gmail === auth.gmail).length
-            : parsed.length;
-          setSentCount(count);
-        } else {
+        const raw = localStorage.getItem(SEND_HISTORY_KEY);
+        if (!raw) {
           setSentCount(0);
+          return;
         }
+        const parsed = JSON.parse(raw) as Array<{ gmail: string }>;
+        const count = gmail
+          ? parsed.filter((record) => record.gmail === gmail).length
+          : parsed.length;
+        setSentCount(count);
       } catch {
         setSentCount(0);
       }
     };
 
     updateCount();
-
-    // Listen for storage events (though this mostly works for other tabs)
-    // For same-tab updates, we might need a custom event or context,
-    // but the form updates localStorage directly.
-    // A simple interval or just relying on page load is usually okay for MVP,
-    // but let's add an interval for "live" feel if the user sends an email.
     const interval = setInterval(updateCount, 2000);
     return () => clearInterval(interval);
-  }, [auth?.gmail]);
+  }, [gmail]);
+
+  return sentCount;
+};
+
+export default function Home() {
+  const router = useRouter();
+  const { auth, logout } = useAuth();
+  const sentCount = useSentCount(auth?.gmail);
 
   return (
     <AuthGuard>
@@ -115,9 +114,9 @@ export default function Home() {
 
           <main className="flex-1 ">
             <div className="max-w-4xl mx-auto space-y-0">
-              <QueryClientProvider client={queryClient}>
+              <QueryProvider>
                 <EmailForm />
-              </QueryClientProvider>
+              </QueryProvider>
             </div>
           </main>
         </div>

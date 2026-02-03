@@ -1,6 +1,8 @@
 "use client";
-import React, { useEffect, useState } from "react";
+
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, History, Search, Trash2, Github, Calendar, Clock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,14 +19,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, History, Search, Trash2, Github, Calendar, Clock, Mail } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useAuth } from "../hooks/useAuth";
 import { PROJECT_CONFIG } from "@/lib/constants";
 
-// Types matching what's stored
 type SendRecord = {
   gmail: string;
   recipient: string;
@@ -33,81 +33,89 @@ type SendRecord = {
 
 const SEND_HISTORY_KEY = "email-send-history";
 
+const useEmailHistory = (gmail?: string) => {
+  const [history, setHistory] = useState<SendRecord[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(SEND_HISTORY_KEY);
+      if (!raw) {
+        setHistory([]);
+        return;
+      }
+      const parsed: SendRecord[] = JSON.parse(raw);
+      const userHistory = gmail
+        ? parsed.filter((record) => record.gmail === gmail)
+        : parsed;
+      userHistory.sort(
+        (a, b) =>
+          new Date(b.lastSent).getTime() - new Date(a.lastSent).getTime(),
+      );
+      setHistory(userHistory);
+    } catch (error) {
+      console.error("Failed to load history", error);
+    }
+  }, [gmail]);
+
+  const filteredHistory = useMemo(() => {
+    if (!searchTerm.trim()) return history;
+    const lower = searchTerm.toLowerCase();
+    return history.filter(
+      (item) =>
+        item.recipient.toLowerCase().includes(lower) ||
+        new Date(item.lastSent)
+          .toLocaleString()
+          .toLowerCase()
+          .includes(lower),
+    );
+  }, [history, searchTerm]);
+
+  return {
+    history,
+    filteredHistory,
+    searchTerm,
+    setSearchTerm,
+    setHistory,
+  };
+};
+
 export default function HistoryPage() {
   const router = useRouter();
   const { auth } = useAuth();
-  const [history, setHistory] = useState<SendRecord[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filteredHistory, setFilteredHistory] = useState<SendRecord[]>([]);
-
-  useEffect(() => {
-    const loadHistory = () => {
-      if (typeof window === "undefined") return;
-      try {
-        const raw = localStorage.getItem(SEND_HISTORY_KEY);
-        if (raw) {
-          const parsed: SendRecord[] = JSON.parse(raw);
-          // Filter by current user's gmail if needed, or show all
-          // Generally, we only want to show history for the currently logged-in user
-          const userHistory = auth?.gmail
-            ? parsed.filter((r) => r.gmail === auth.gmail)
-            : parsed;
-
-          // Sort by date desc
-          userHistory.sort(
-            (a, b) =>
-              new Date(b.lastSent).getTime() - new Date(a.lastSent).getTime(),
-          );
-          setHistory(userHistory);
-          setFilteredHistory(userHistory);
-        }
-      } catch (e) {
-        console.error("Failed to load history", e);
-      }
-    };
-    loadHistory();
-  }, [auth?.gmail]);
-
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredHistory(history);
-      return;
-    }
-    const lower = searchTerm.toLowerCase();
-    const filtered = history.filter(
-      (item) =>
-        item.recipient.toLowerCase().includes(lower) ||
-        new Date(item.lastSent).toLocaleString().toLowerCase().includes(lower),
-    );
-    setFilteredHistory(filtered);
-  }, [searchTerm, history]);
+  const {
+    history,
+    filteredHistory,
+    searchTerm,
+    setSearchTerm,
+    setHistory,
+  } = useEmailHistory(auth?.gmail);
 
   const clearHistory = () => {
     if (typeof window === "undefined") return;
     if (
-      confirm(
+      !confirm(
         "Are you sure you want to clear your email history? This cannot be undone.",
       )
     ) {
-      // We should only clear history for the current user, or all?
-      // Simpler to just clear the user's history from the array and save back
-      try {
-        const raw = localStorage.getItem(SEND_HISTORY_KEY);
-        let allHistory: SendRecord[] = raw ? JSON.parse(raw) : [];
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(SEND_HISTORY_KEY);
+      let allHistory: SendRecord[] = raw ? JSON.parse(raw) : [];
 
-        if (auth?.gmail) {
-          allHistory = allHistory.filter((r) => r.gmail !== auth.gmail);
-        } else {
-          allHistory = [];
-        }
-
-        localStorage.setItem(SEND_HISTORY_KEY, JSON.stringify(allHistory));
-        setHistory([]);
-        setFilteredHistory([]);
-        toast.success("History cleared.");
-      } catch {
-        toast.error("Failed to clear history");
+      if (auth?.gmail) {
+        allHistory = allHistory.filter((record) => record.gmail !== auth.gmail);
+      } else {
+        allHistory = [];
       }
+
+      localStorage.setItem(SEND_HISTORY_KEY, JSON.stringify(allHistory));
+      setHistory([]);
+      toast.success("History cleared.");
+    } catch {
+      toast.error("Failed to clear history");
     }
   };
 

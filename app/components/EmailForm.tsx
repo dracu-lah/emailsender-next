@@ -1,8 +1,7 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,291 +11,38 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import {
   Loader2,
   CheckCircle2,
-  X,
   Edit2,
   Save,
-  Copy,
 } from "lucide-react";
 import axios from "axios";
 import { useAuth } from "../hooks/useAuth";
 import { toast } from "sonner";
+import { RecipientsTagInput } from "./RecipientsTagInput";
+import { SendConfirmationDialog } from "./SendConfirmationDialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
+  FormType,
+  SendRecord,
+  StoredData,
+  clearStoredData,
+  formSchema,
+  getSendHistory,
+  getStoredData,
+  setSendHistory,
+  setStoredData,
+} from "./email-form.config";
 
 type ErrorResponse = {
-  response: {
-    data: {
-      error: string;
-      message: string;
+  response?: {
+    data?: {
+      error?: string;
+      message?: string;
     };
   };
 };
+
 const SendEmailAPI = async (params: unknown) => {
   const { data } = await axios.post(`/api/send-email`, params);
   return data;
-};
-
-const isValidEmail = (email: string) =>
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ACCEPTED_FILE_TYPES = [
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "image/jpeg",
-  "image/png",
-  "video/mp4",
-];
-
-const formSchema = z.object({
-  recipients: z
-    .array(z.string().email())
-    .min(1, "At least one recipient is required"),
-  subject: z.string().min(1, "Subject is required"),
-  body: z.string().min(10, "Body must be at least 10 characters"),
-  resume: z
-    .any()
-    .refine((files) => files?.length > 0, "Resume is required")
-    .refine(
-      (files) => files?.[0]?.type === "application/pdf",
-      "Only PDF files are allowed",
-    ),
-});
-
-type FormType = z.infer<typeof formSchema>;
-
-const STORAGE_KEY = "email-form-data";
-const SEND_HISTORY_KEY = "email-send-history";
-
-type StoredData = {
-  recipients?: string[];
-  subject?: string;
-  body?: string;
-  resumeData?: string;
-  resumeName?: string;
-};
-
-type SendRecord = {
-  gmail: string;
-  recipient: string;
-  lastSent: string;
-};
-
-const getStoredData = (): StoredData => {
-  if (typeof window === "undefined") return {};
-  try {
-    const s = localStorage.getItem(STORAGE_KEY);
-    return s ? JSON.parse(s) : {};
-  } catch {
-    return {};
-  }
-};
-
-const setStoredData = (data: StoredData) => {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {}
-};
-
-const clearStoredData = () => {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {}
-};
-
-const getSendHistory = (): SendRecord[] => {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(SEND_HISTORY_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
-
-const setSendHistory = (records: SendRecord[]) => {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(SEND_HISTORY_KEY, JSON.stringify(records));
-  } catch {}
-};
-
-interface TagInputProps {
-  value: string[];
-  label: string;
-  onChange: (value: string[]) => void;
-  error?: { message?: string };
-  disabled?: boolean;
-  sentMap?: Record<string, string>;
-}
-
-const TagInput: React.FC<TagInputProps> = ({
-  value,
-  label,
-  onChange,
-  error,
-  disabled,
-  sentMap,
-}) => {
-  const [inputValue, setInputValue] = useState("");
-  const [tags, setTags] = useState<string[]>(value || []);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => setTags(value || []), [value]);
-
-  const addTag = (email: string) => {
-    const t = email.trim();
-    if (t && isValidEmail(t) && !tags.includes(t)) {
-      const next = [...tags, t];
-      setTags(next);
-      onChange(next);
-      setInputValue("");
-    }
-  };
-
-  const removeTag = (index: number) => {
-    const next = tags.filter((_, i) => i !== index);
-    setTags(next);
-    onChange(next);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" || e.key === "," || e.key === " ") {
-      e.preventDefault();
-      addTag(inputValue);
-    } else if (e.key === "Backspace" && !inputValue && tags.length) {
-      removeTag(tags.length - 1);
-    }
-  };
-
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData("text");
-    const emails = pasted
-      .split(/[,\s\n;]+/)
-      .map((x) => x.trim())
-      .filter((x) => x && isValidEmail(x));
-    const unique = emails.filter((x) => !tags.includes(x));
-    if (unique.length) {
-      const next = [...tags, ...unique];
-      setTags(next);
-      onChange(next);
-      setInputValue("");
-    }
-  };
-
-  const handleBlur = () => {
-    if (inputValue.trim()) addTag(inputValue);
-  };
-
-  const copyAll = () => {
-    if (tags.length) {
-      navigator.clipboard.writeText(tags.join(", ")).then(
-        () => toast.success("Emails copied to clipboard!"),
-        () => toast.error("Failed to copy emails"),
-      );
-    }
-  };
-
-  return (
-    <div className="space-y-2">
-      <div className="flex justify-between">
-        {label && <Label htmlFor="recipients">{label}</Label>}
-        {tags.length > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={copyAll}
-          >
-            <Copy className="h-3 w-3 mr-1" />
-            Copy all emails
-          </Button>
-        )}
-      </div>
-      <div
-        className={`min-h-[44px] w-full rounded-md border px-3 py-2 text-sm flex flex-wrap gap-2 items-center ${error ? "border-destructive" : "border"} bg-popover`}
-        onClick={() => !disabled && inputRef.current?.focus()}
-        role="button"
-        tabIndex={0}
-      >
-        {tags.map((tag, i) => {
-          const sent = sentMap?.[tag];
-          return (
-            <div
-              key={i}
-              className={`inline-flex items-center gap-3 ${!sent ? "bg-primary" : "bg-secondary"} rounded-md px-2 py-1`}
-            >
-              <div className="flex relative flex-col justify-center">
-                <div className={`text-sm font-medium text-foreground`}>
-                  {tag}
-                </div>
-              </div>
-              {!disabled && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeTag(i);
-                  }}
-                  aria-label={`Remove ${tag}`}
-                  className="rounded p-1 hover:bg-primary/20"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-          );
-        })}
-        {!disabled && (
-          <input
-            ref={inputRef}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            onBlur={handleBlur}
-            placeholder={
-              tags.length === 0
-                ? "recipient@gmail.com, recipient2@company.com"
-                : ""
-            }
-            className="flex-1 min-w-[140px] bg-transparent outline-none"
-          />
-        )}
-      </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
-        <span className="text-xs font-medium text-muted-foreground uppercase">
-          Recipients Legend:
-        </span>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-primary" />
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-            New
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-secondary" />
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-            Already Sent
-          </span>
-        </div>
-      </div>
-      {error?.message && (
-        <p className="text-xs text-destructive">{error.message}</p>
-      )}
-    </div>
-  );
 };
 
 const EmailForm: React.FC = () => {
@@ -376,23 +122,20 @@ Best regards,
     }
   }, [setValue, clearErrors]);
 
-  const formValues = watch();
+  const recipients = watch("recipients");
+  const subject = watch("subject");
+  const body = watch("body");
+  const resume = watch("resume");
 
   // Save to LocalStorage
   useEffect(() => {
-    const {
-      recipients,
-      resume,
-      ...dataToStore
-    } = formValues as FormType;
-
     const saveToStorage = async () => {
       const newData: StoredData = {
-        ...dataToStore,
         recipients,
+        subject,
+        body,
       };
 
-      // Handle Resume
       if (resume && resume[0]) {
         const file = resume[0];
         if (file.type === "application/pdf") {
@@ -416,10 +159,10 @@ Best regards,
 
     saveToStorage();
   }, [
-    formValues.recipients,
-    formValues.subject,
-    formValues.body,
-    formValues.resume,
+    recipients,
+    subject,
+    body,
+    resume,
   ]);
 
   useEffect(() => {
@@ -612,7 +355,7 @@ Best regards,
                   name="recipients"
                   control={control}
                   render={({ field }) => (
-                    <TagInput
+                    <RecipientsTagInput
                       label="Recipients"
                       value={field.value}
                       onChange={field.onChange}
@@ -740,82 +483,20 @@ Best regards,
         </Card>
       </div>
 
-      <Dialog
+      <SendConfirmationDialog
         open={showConfirm}
-        onOpenChange={(v) => {
-          if (!v) {
-            setPendingFormData(null);
-            setConflictingRecipients([]);
-            setSelectedConflicts({});
-          }
-          setShowConfirm(v);
+        isSubmitting={mutation.isPending}
+        recipients={conflictingRecipients}
+        selectedRecipients={selectedConflicts}
+        onToggleRecipient={handleToggleConflict}
+        onConfirm={handleConfirmSend}
+        onClose={() => {
+          setShowConfirm(false);
+          setPendingFormData(null);
+          setConflictingRecipients([]);
+          setSelectedConflicts({});
         }}
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Previously sent to these recipients</DialogTitle>
-            <DialogDescription>
-              This email was previously sent to some recipients from this Gmail
-              account. Choose which of them should be updated and proceed.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="mt-4">
-            <div className="max-h-64 overflow-auto flex flex-col gap-1 rounded border p-1">
-              {conflictingRecipients.map((c) => (
-                <label
-                  key={c.recipient}
-                  className="flex items-center justify-between gap-4 p-2 bg-card"
-                >
-                  <div className="flex items-start gap-3">
-                    <Checkbox
-                      checked={!!selectedConflicts[c.recipient]}
-                      onCheckedChange={() => handleToggleConflict(c.recipient)}
-                      className="mt-1"
-                    />
-                    <div className="flex flex-col">
-                      <div className="text-sm font-medium ">{c.recipient}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(c.lastSent).toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
-                </label>
-              ))}
-              {conflictingRecipients.length === 0 && (
-                <div className="p-2 text-sm text-muted-foreground">
-                  No conflicting recipients.
-                </div>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter className="mt-4">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowConfirm(false);
-                setPendingFormData(null);
-                setConflictingRecipients([]);
-                setSelectedConflicts({});
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmSend}
-              className="md:ml-2"
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                "Proceed"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      />
     </div>
   );
 };

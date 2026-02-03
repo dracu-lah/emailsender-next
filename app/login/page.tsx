@@ -1,7 +1,9 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
+import { Github, Eye, EyeOff, Info, ExternalLink, CheckCircle2, Zap, Shield, Send, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,23 +15,9 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Eye,
-  EyeOff,
-  Info,
-  ExternalLink,
-  Mail,
-  CheckCircle2,
-  Zap,
-  Shield,
-  Send,
-  MailIcon,
-  MailCheck,
-} from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { PROJECT_CONFIG } from "@/lib/constants";
-import { Github } from "lucide-react";
 
 const LoginPage = () => {
   const router = useRouter();
@@ -41,17 +29,12 @@ const LoginPage = () => {
     appPassword: string;
   } | null>(null);
 
-  // 👇 redirect if already logged in
   useEffect(() => {
     const auth = localStorage.getItem("auth");
     if (auth) router.replace("/");
   }, [router]);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm({
+  const { register, handleSubmit, formState: { errors } } = useForm({
     defaultValues: {
       gmail: "",
       appPassword: "",
@@ -72,7 +55,6 @@ const LoginPage = () => {
 
   return (
     <div className="w-full min-h-screen lg:grid lg:grid-cols-2 bg-background relative z-10">
-      {/* Left Panel - Branding & Info */}
       <div className="hidden bg-muted lg:flex flex-col p-10 text-white dark:text-foreground relative overflow-hidden">
         <div className="absolute inset-0 bg-zinc-950 dark:bg-zinc-950/90" />
         <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-primary/10 to-transparent" />
@@ -127,7 +109,7 @@ const LoginPage = () => {
               <div>
                 <h3 className="font-bold text-white">Smart Tracking</h3>
                 <p className="text-sm text-zinc-400">
-                  Keep track of who you've emailed and avoid awkward
+                  Keep track of who you&apos;ve emailed and avoid awkward
                   double-sends.
                 </p>
               </div>
@@ -150,7 +132,6 @@ const LoginPage = () => {
         </div>
       </div>
 
-      {/* Right Panel - Login Form */}
       <div className="flex items-center justify-center min-h-screen py-12 px-4 sm:px-8 lg:p-8 relative bg-background">
         <div className="absolute right-4 top-4 md:right-8 md:top-8 flex items-center gap-2">
           <Button
@@ -275,8 +256,8 @@ const LoginPage = () => {
                                   Access App Passwords
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  Search for "App Passwords" in the search bar
-                                  or go to Security settings.
+                                  Search for &quot;App Passwords&quot; in the
+                                  search bar or go to Security settings.
                                 </p>
                               </div>
                             </div>
@@ -290,8 +271,8 @@ const LoginPage = () => {
                                   Generate Password
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  Create a new app password named "Email
-                                  Sender".
+                                  Create a new app password named &quot;Email
+                                  Sender&quot;.
                                 </p>
                               </div>
                             </div>
@@ -392,7 +373,7 @@ const LoginPage = () => {
           </DialogHeader>
           <DialogFooter className="flex-col sm:flex-col gap-2 pt-4">
             <Button onClick={handleConfirmLogin} className="w-full sm:w-full">
-              Yes, I'm using an App Password
+              Yes, I&apos;m using an App Password
             </Button>
             <Button
               variant="outline"

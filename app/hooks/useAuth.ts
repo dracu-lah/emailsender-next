@@ -1,17 +1,24 @@
 "use client";
-import { useState, useCallback } from "react";
+
+import { useCallback, useState } from "react";
+
+export type AuthState = {
+  gmail: string;
+  appPassword: string;
+} | null;
+
+const getInitialAuth = (): AuthState => {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem("auth");
+    return stored ? (JSON.parse(stored) as AuthState) : null;
+  } catch {
+    return null;
+  }
+};
 
 export const useAuth = () => {
-  const [auth, setAuth] = useState<{
-    gmail: string;
-    appPassword: string;
-  } | null>(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("auth");
-      return stored ? JSON.parse(stored) : null;
-    }
-    return null;
-  });
+  const [auth, setAuth] = useState<AuthState>(getInitialAuth);
 
   const logout = useCallback(() => {
     localStorage.removeItem("auth");
@@ -20,3 +27,4 @@ export const useAuth = () => {
 
   return { auth, logout, isAuthenticated: !!auth };
 };
+

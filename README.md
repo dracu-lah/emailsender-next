@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## EmailxSender
 
-## Getting Started
+EmailxSender is a small open-source Next.js app that helps you send personalized job outreach or bulk recruiter emails directly from your own Gmail account using a Gmail App Password.
 
-First, run the development server:
+### Features
+
+- **Bulk sending with per-recipient delivery** (no BCC lists).
+- **Local-only credentials** stored in `localStorage` on your device.
+- **Auto-saved drafts** for subject, body, recipients, and resume.
+- **Send history** per Gmail so you can see who you’ve already contacted.
+- **Dark/light theme** and a simple, focused UI.
+
+### Getting started
+
+1. Install dependencies:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Run the development server:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. Open `http://localhost:3000` in your browser.
 
-## Learn More
+4. On the login screen:
+   - Enter your Gmail address.
+   - Enter a **Gmail App Password** (16 characters), not your normal password.
 
-To learn more about Next.js, take a look at the following resources:
+5. Compose your email, upload a PDF resume, add recipients, and send. You can view past sends on the **History** page.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Security notes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Your Gmail and App Password are stored only in your browser’s `localStorage` and are never sent to any external backend other than Gmail’s SMTP through the server-side email API.
+- You should generate a dedicated App Password for this tool and revoke it from your Google Account if you stop using the app.
 
-## Deploy on Vercel
+### Contributing
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Contributions and feedback are welcome. Feel free to open issues or pull requests to improve the code quality, UX, or documentation.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### License
+
+This project is available under the MIT License. See `LICENSE` (if present) or add one before distributing.

@@ -1,4 +1,3 @@
-// types/email.ts
 export interface EmailRequest {
   email: string;
   app_password: string;
