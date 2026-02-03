@@ -11,7 +11,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    setIsHydrated(true);
+    const id = setTimeout(() => {
+      setIsHydrated(true);
+    }, 0);
+    return () => clearTimeout(id);
   }, []);
 
   useEffect(() => {

@@ -39,24 +39,27 @@ const useEmailHistory = (gmail?: string) => {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      const raw = localStorage.getItem(SEND_HISTORY_KEY);
-      if (!raw) {
-        setHistory([]);
-        return;
+    const id = setTimeout(() => {
+      try {
+        const raw = localStorage.getItem(SEND_HISTORY_KEY);
+        if (!raw) {
+          setHistory([]);
+        } else {
+          const parsed: SendRecord[] = JSON.parse(raw);
+          const userHistory = gmail
+            ? parsed.filter((record) => record.gmail === gmail)
+            : parsed;
+          userHistory.sort(
+            (a, b) =>
+              new Date(b.lastSent).getTime() - new Date(a.lastSent).getTime(),
+          );
+          setHistory(userHistory);
+        }
+      } catch (error) {
+        console.error("Failed to load history", error);
       }
-      const parsed: SendRecord[] = JSON.parse(raw);
-      const userHistory = gmail
-        ? parsed.filter((record) => record.gmail === gmail)
-        : parsed;
-      userHistory.sort(
-        (a, b) =>
-          new Date(b.lastSent).getTime() - new Date(a.lastSent).getTime(),
-      );
-      setHistory(userHistory);
-    } catch (error) {
-      console.error("Failed to load history", error);
-    }
+    }, 0);
+    return () => clearTimeout(id);
   }, [gmail]);
 
   const filteredHistory = useMemo(() => {

@@ -30,7 +30,12 @@ export const RecipientsTagInput: React.FC<TagInputProps> = ({
   const [tags, setTags] = useState<string[]>(value || []);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => setTags(value || []), [value]);
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setTags(value || []);
+    }, 0);
+    return () => clearTimeout(id);
+  }, [value]);
 
   const addTag = (email: string) => {
     const trimmed = email.trim();
