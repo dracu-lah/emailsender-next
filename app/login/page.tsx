@@ -27,6 +27,11 @@ const LoginPage = () => {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [formData, setFormData] = useState<{
+    gmail: string;
+    appPassword: string;
+  } | null>(null);
 
   // 👇 redirect if already logged in
   useEffect(() => {
@@ -46,8 +51,15 @@ const LoginPage = () => {
   });
 
   const onSubmit = (values: { gmail: string; appPassword: string }) => {
-    localStorage.setItem("auth", JSON.stringify(values));
-    router.push("/");
+    setFormData(values);
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmLogin = () => {
+    if (formData) {
+      localStorage.setItem("auth", JSON.stringify(formData));
+      router.push("/");
+    }
   };
 
   return (
@@ -261,6 +273,35 @@ const LoginPage = () => {
           </CardFooter>
         </form>
       </Card>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Is this an App Password?</DialogTitle>
+            <DialogDescription>
+              Please ensure you are using a <strong>Google App Password</strong>
+              , not your regular Google login password.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 pt-4">
+            <Button onClick={handleConfirmLogin}>
+              Yes, it is an App Password
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setConfirmOpen(false);
+                setModalOpen(true);
+              }}
+            >
+              No, I don&apos;t have one (Help)
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

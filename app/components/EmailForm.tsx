@@ -9,7 +9,16 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Loader2, CheckCircle2, X, Edit2, Save, Copy } from "lucide-react";
+import {
+  Loader2,
+  CheckCircle2,
+  X,
+  Edit2,
+  Save,
+  Copy,
+  Paperclip,
+  Trash2,
+} from "lucide-react";
 import axios from "axios";
 import { useAuth } from "../hooks/useAuth";
 import { toast } from "sonner";
@@ -39,6 +48,16 @@ const SendEmailAPI = async (params: unknown) => {
 const isValidEmail = (email: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ACCEPTED_FILE_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/jpeg",
+  "image/png",
+  "video/mp4",
+];
+
 const formSchema = z.object({
   recipients: z
     .array(z.string().email())
@@ -52,6 +71,21 @@ const formSchema = z.object({
       (files) => files?.[0]?.type === "application/pdf",
       "Only PDF files are allowed",
     ),
+  attachments: z
+    .any()
+    .optional()
+    .refine((files) => {
+      if (!files || files.length === 0) return true;
+      return Array.from(files as FileList).every(
+        (file) => file.size <= MAX_FILE_SIZE,
+      );
+    }, "Each attachment must be less than 5MB")
+    .refine((files) => {
+      if (!files || files.length === 0) return true;
+      return Array.from(files as FileList).every((file) =>
+        ACCEPTED_FILE_TYPES.includes(file.type),
+      );
+    }, "Invalid file type. Allowed: PDF, DOC, DOCX, JPG, PNG, MP4"),
 });
 
 type FormType = z.infer<typeof formSchema>;
@@ -59,12 +93,19 @@ type FormType = z.infer<typeof formSchema>;
 const STORAGE_KEY = "email-form-data";
 const SEND_HISTORY_KEY = "email-send-history";
 
+type StoredAttachment = {
+  name: string;
+  type: string;
+  data: string;
+};
+
 type StoredData = {
   recipients?: string[];
   subject?: string;
   body?: string;
   resumeData?: string;
   resumeName?: string;
+  attachments?: StoredAttachment[];
 };
 
 type SendRecord = {
@@ -258,6 +299,23 @@ const TagInput: React.FC<TagInputProps> = ({
           />
         )}
       </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
+        <span className="text-xs font-medium text-muted-foreground uppercase">
+          Recipients Legend:
+        </span>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-primary" />
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+            New
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-secondary" />
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+            Already Sent
+          </span>
+        </div>
+      </div>
       {error?.message && (
         <p className="text-xs text-destructive">{error.message}</p>
       )}
@@ -272,6 +330,7 @@ const EmailForm: React.FC = () => {
   const [storedFileName, setStoredFileName] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const storedData = getStoredData();
   const [sendMap, setSendMap] = useState<Record<string, string>>({});
   const [showConfirm, setShowConfirm] = useState(false);
@@ -283,6 +342,7 @@ const EmailForm: React.FC = () => {
     Record<string, boolean>
   >({});
   const [lastSentRecipients, setLastSentRecipients] = useState<string[]>([]);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
 
   const {
     register,
@@ -313,13 +373,16 @@ Please find my resume attached for your consideration.
 Best regards,
 [Your Name]`,
       resume: undefined,
+      attachments: undefined,
     },
   });
 
+  // Restore Resume and Attachments
   useEffect(() => {
+    // Restore Resume
     if (storedData.resumeData && storedData.resumeName) {
       setStoredFileName(storedData.resumeName);
-      const convert = async () => {
+      const convertResume = async () => {
         const res = await fetch(storedData.resumeData!);
         const blob = await res.blob();
         const file = new File([blob], storedData.resumeName!, {
@@ -330,43 +393,111 @@ Best regards,
         setValue("resume", dt.files);
         clearErrors("resume");
       };
-      convert().catch(() => {});
+      convertResume().catch(() => {});
     }
-  }, [storedData.resumeData, storedData.resumeName, setValue, clearErrors]);
+
+    // Restore Attachments
+    if (storedData.attachments && storedData.attachments.length > 0) {
+      const convertAttachments = async () => {
+        const files: File[] = [];
+        for (const att of storedData.attachments!) {
+          try {
+            const res = await fetch(att.data);
+            const blob = await res.blob();
+            files.push(new File([blob], att.name, { type: att.type }));
+          } catch (e) {
+            console.error("Failed to restore attachment", att.name, e);
+          }
+        }
+        if (files.length > 0) {
+          setAttachedFiles(files);
+          const dt = new DataTransfer();
+          files.forEach((f) => dt.items.add(f));
+          setValue("attachments", dt.files);
+        }
+      };
+      convertAttachments().catch(() => {});
+    }
+  }, [
+    storedData.resumeData,
+    storedData.resumeName,
+    storedData.attachments,
+    setValue,
+    clearErrors,
+  ]);
 
   const formValues = watch();
 
+  // Save to LocalStorage
   useEffect(() => {
-    const { recipients, resume, ...dataToStore } = formValues as FormType;
-    if (resume && resume[0]) {
-      const file = resume[0];
-      if (file.type !== "application/pdf") {
-        setError("resume", {
-          type: "manual",
-          message: "Only PDF files are allowed",
-        });
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setStoredData({
-          ...dataToStore,
-          recipients,
-          resumeData: e.target?.result as string,
-          resumeName: file.name,
-        });
-        setStoredFileName(file.name);
-        clearErrors("resume");
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setStoredData({
-        ...storedData,
+    // attachments is handled via attachedFiles state
+    const {
+      recipients,
+      resume,
+      attachments: _ignore,
+      ...dataToStore
+    } = formValues as FormType;
+
+    const saveToStorage = async () => {
+      const newData: StoredData = {
         ...dataToStore,
         recipients,
-      });
-    }
-  }, [formValues, storedData, setError, clearErrors]);
+        // resumeData, resumeName, attachments will be set below if they exist
+      };
+
+      // Handle Resume
+      if (resume && resume[0]) {
+        const file = resume[0];
+        if (file.type === "application/pdf") {
+          try {
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (e) => resolve(e.target?.result as string);
+              reader.readAsDataURL(file);
+            });
+            newData.resumeData = base64;
+            newData.resumeName = file.name;
+            setStoredFileName(file.name);
+          } catch {}
+        }
+      } else {
+        // Explicitly clear if removed
+        setStoredFileName(null);
+      }
+
+      // Handle Attachments
+      if (attachedFiles.length > 0) {
+        const attData: StoredAttachment[] = [];
+        for (const file of attachedFiles) {
+          try {
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (e) => resolve(e.target?.result as string);
+              reader.readAsDataURL(file);
+            });
+            attData.push({
+              name: file.name,
+              type: file.type,
+              data: base64,
+            });
+          } catch {}
+        }
+        newData.attachments = attData;
+      } else {
+        newData.attachments = [];
+      }
+
+      setStoredData(newData);
+    };
+
+    saveToStorage();
+  }, [
+    formValues.recipients,
+    formValues.subject,
+    formValues.body,
+    formValues.resume,
+    attachedFiles,
+  ]);
 
   useEffect(() => {
     const history = getSendHistory();
@@ -460,6 +591,8 @@ Best regards,
     formData.append("recipients", recipientsToSend.join(","));
     formData.append("subject", data.subject);
     formData.append("body", data.body);
+
+    // Resume
     if (data.resume && data.resume[0]) {
       formData.append("resume", data.resume[0]);
     } else if (storedData.resumeData && storedData.resumeName) {
@@ -475,6 +608,12 @@ Best regards,
         return;
       }
     }
+
+    // Attachments
+    attachedFiles.forEach((file) => {
+      formData.append("attachments", file);
+    });
+
     setLastSentRecipients(recipientsToSend);
     mutation.mutate(formData);
   };
@@ -502,6 +641,7 @@ Best regards,
   const handleClearStorage = () => {
     clearStoredData();
     setStoredFileName(null);
+    setAttachedFiles([]);
     reset({
       recipients: [],
       subject: "ReactJS Developer Application",
@@ -516,9 +656,11 @@ Please find my resume attached for your consideration.
 Best regards,
 [Your Name]`,
       resume: null,
+      attachments: null,
     });
     setIsEditing(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (attachmentInputRef.current) attachmentInputRef.current.value = "";
   };
 
   const toggleEditing = () => setIsEditing((s) => !s);
@@ -532,6 +674,43 @@ Best regards,
       setValue("resume", files);
       trigger("resume");
     }
+  };
+
+  const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const newFiles = Array.from(files);
+      // Validate
+      const invalidFiles = newFiles.filter(
+        (f) => f.size > MAX_FILE_SIZE || !ACCEPTED_FILE_TYPES.includes(f.type),
+      );
+      if (invalidFiles.length > 0) {
+        toast.error(
+          "Some files were rejected. Check size (<5MB) and type restrictions.",
+        );
+      }
+      const validFiles = newFiles.filter(
+        (f) => f.size <= MAX_FILE_SIZE && ACCEPTED_FILE_TYPES.includes(f.type),
+      );
+
+      const updated = [...attachedFiles, ...validFiles];
+      setAttachedFiles(updated);
+
+      // Update form value for validation
+      const dt = new DataTransfer();
+      updated.forEach((f) => dt.items.add(f));
+      setValue("attachments", dt.files);
+
+      if (attachmentInputRef.current) attachmentInputRef.current.value = "";
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    const updated = attachedFiles.filter((_, i) => i !== index);
+    setAttachedFiles(updated);
+    const dt = new DataTransfer();
+    updated.forEach((f) => dt.items.add(f));
+    setValue("attachments", dt.files);
   };
 
   return (
@@ -643,6 +822,57 @@ Best regards,
                 {!storedFileName && !errors.resume && (
                   <p className="text-sm text-muted-foreground">
                     Please upload your resume in PDF format
+                  </p>
+                )}
+              </div>
+
+              {/* Additional Attachments */}
+              <div className="space-y-2">
+                <Label htmlFor="attachments">Additional Attachments</Label>
+                <Input
+                  id="attachments"
+                  type="file"
+                  multiple
+                  onChange={handleAttachmentChange}
+                  disabled={!isEditing}
+                  ref={attachmentInputRef}
+                  accept={ACCEPTED_FILE_TYPES.join(",")}
+                />
+
+                {attachedFiles.length > 0 && (
+                  <div className="flex flex-col gap-2 mt-2">
+                    {attachedFiles.map((file, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between p-2 rounded-md border bg-muted/50"
+                      >
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="text-sm truncate max-w-[200px] md:max-w-xs">
+                            {file.name}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                          </span>
+                        </div>
+                        {isEditing && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => removeAttachment(i)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {errors.attachments && (
+                  <p className="text-xs text-destructive">
+                    {errors.attachments.message as string}
                   </p>
                 )}
               </div>

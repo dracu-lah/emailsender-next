@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
     const subject = formData.get("subject") as string;
     const body = formData.get("body") as string;
     const resume = formData.get("resume") as File;
+    const additionalFiles = formData.getAll("attachments") as File[];
 
     // Quick validation
     if (!email || !appPassword || !recipients || !subject || !body) {
@@ -22,12 +23,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!resume || resume.size > 5 * 1024 * 1024) {
+    let totalSize = resume ? resume.size : 0;
+    for (const file of additionalFiles) {
+      totalSize += file.size;
+    }
+
+    if (totalSize > 10 * 1024 * 1024) {
       return NextResponse.json(
-        { error: "File too large or missing" },
+        { error: "Total attachment size exceeds 10MB limit" },
         { status: 400 },
       );
     }
+
+    if (!resume && additionalFiles.length === 0) {
+       // It seems resume is required by frontend, but strict check here:
+       if (!resume) {
+          return NextResponse.json(
+            { error: "Resume file is missing" },
+            { status: 400 },
+          );
+       }
+    }
+
 
     // Parse recipients (comma-separated or newline-separated)
     const recipientList = recipients
@@ -53,8 +70,23 @@ export async function POST(request: NextRequest) {
       maxMessages: 1,
     });
 
-    // Convert File to Buffer
-    const resumeBuffer = Buffer.from(await resume.arrayBuffer());
+    // Prepare attachments
+    const mailAttachments = [];
+    if (resume) {
+      mailAttachments.push({
+        filename: resume.name || "resume.pdf",
+        content: Buffer.from(await resume.arrayBuffer()),
+      });
+    }
+
+    for (const file of additionalFiles) {
+      if (file.size > 0) {
+        mailAttachments.push({
+            filename: file.name,
+            content: Buffer.from(await file.arrayBuffer()),
+        });
+      }
+    }
 
     // Send emails individually with delays
     const results = [];
@@ -74,12 +106,7 @@ export async function POST(request: NextRequest) {
           to: recipient, // Send to individual recipient
           subject: subject,
           text: body,
-          attachments: [
-            {
-              filename: resume.name || "resume.pdf",
-              content: resumeBuffer,
-            },
-          ],
+          attachments: mailAttachments,
         });
 
         const timeoutPromise = new Promise<never>((_, reject) => {
