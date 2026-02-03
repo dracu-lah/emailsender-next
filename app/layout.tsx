@@ -17,6 +17,18 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "EmailxSender",
   description: "Send Bulk Emails To Recruiters",
+  openGraph: {
+    title: "EmailxSender",
+    description: "Send bulk emails to recruiters from your Gmail.",
+    url: "/",
+    images: ["/og-image.png"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "EmailxSender",
+    description: "Send bulk emails to recruiters from your Gmail.",
+    images: ["/og-image.png"],
+  },
 };
 export default function RootLayout({
   children,
